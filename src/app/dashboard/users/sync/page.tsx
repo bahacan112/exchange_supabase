@@ -84,9 +84,16 @@ export default function UserSyncPage() {
 
       if (response.ok) {
         const result = await response.json()
-        setSyncResult(result.data)
+        setSyncResult(result.results)
         setSyncProgress(100)
         await fetchRecentUsers()
+        
+        // Başarı mesajı göster
+        if (result.results.errors === 0) {
+          alert(`Senkronizasyon başarıyla tamamlandı! ${result.results.created} yeni kullanıcı eklendi, ${result.results.updated} kullanıcı güncellendi.`)
+        } else {
+          alert(`Senkronizasyon tamamlandı ancak ${result.results.errors} hata oluştu. Detaylar için konsolu kontrol edin.`)
+        }
       } else {
         const error = await response.json()
         alert(`Senkronizasyon hatası: ${error.error}`)
@@ -172,7 +179,7 @@ export default function UserSyncPage() {
                 <div>
                   <h3 className="font-medium text-gray-900">Tüm Kullanıcıları Senkronize Et</h3>
                   <p className="text-sm text-gray-600">
-                    Exchange'den tüm kullanıcıları çeker ve veritabanını günceller
+                    Exchange&apos;den tüm kullanıcıları çeker ve veritabanını günceller
                   </p>
                 </div>
                 <button

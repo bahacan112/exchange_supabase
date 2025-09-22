@@ -82,12 +82,12 @@ export interface MailFolder {
 export interface Email {
   id: string
   exchange_user_id: string
-  mail_folder_id: string
+  mail_folder_id?: string
   message_id: string
-  subject?: string
-  sender_email?: string
+  subject: string
+  sender_email: string
   sender_name?: string
-  recipients?: string[]
+  recipients: string[]
   cc_recipients?: string[]
   bcc_recipients?: string[]
   body_preview?: string
@@ -99,8 +99,7 @@ export interface Email {
   importance?: string
   has_attachments: boolean
   attachment_count: number
-  eml_file_path?: string
-  idrive_folder_path?: string
+  // eml_file_path ve idrive_folder_path alanları kaldırıldı
   backup_status: 'pending' | 'completed' | 'failed'
   backup_date?: string
   created_at: string
@@ -114,7 +113,7 @@ export interface EmailAttachment {
   filename: string
   content_type?: string
   size_bytes?: number
-  idrive_file_path?: string
+  backup_path?: string // idrive_file_path yerine backup_path
   backup_status: 'pending' | 'completed' | 'failed'
   backup_date?: string
   created_at: string

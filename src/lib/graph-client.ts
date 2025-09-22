@@ -85,13 +85,13 @@ export class GraphService {
     try {
       const attachments = await graphClient
         .api(`/users/${userId}/messages/${messageId}/attachments`)
-        .select('id,name,contentType,size,contentBytes')
+        .select('id,name,contentType,size')
         .get()
       
-      return attachments
+      return attachments.value || []
     } catch (error) {
       console.error('Error fetching attachments:', error)
-      throw error
+      return []
     }
   }
 
@@ -236,5 +236,4 @@ export interface GraphAttachment {
   name: string
   contentType: string
   size: number
-  contentBytes: string
 }

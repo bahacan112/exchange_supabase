@@ -8,6 +8,9 @@ export const GET = requireAuth(async (
   user: AuthUser
 ) => {
   try {
+    // Zamanlayıcı servisini başlat (eğer başlatılmamışsa)
+    await SchedulerServiceInstance.initializeScheduledBackups()
+    
     // Aktif zamanlanmış görevleri çek
     const scheduledTasks = SchedulerServiceInstance.getScheduledTasks()
     const activeTaskCount = scheduledTasks.size

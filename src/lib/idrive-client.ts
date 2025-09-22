@@ -1,9 +1,9 @@
-import AWS from 'aws-sdk'
+import { S3Client, HeadBucketCommand, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3'
 import fs from 'fs'
 import path from 'path'
 
 export class IDriveClient {
-  private s3Client: AWS.S3
+  private s3Client: S3Client
   private bucketName: string
   private basePath: string
 
@@ -14,19 +14,22 @@ export class IDriveClient {
     this.bucketName = process.env.IDRIVE_E2_BUCKET!
     this.basePath = process.env.IDRIVE_BASE_PATH || 'exchange-backups'
 
-    this.s3Client = new AWS.S3({
-      accessKeyId,
-      secretAccessKey,
+    this.s3Client = new S3Client({
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
       endpoint,
-      s3ForcePathStyle: true,
-      signatureVersion: 'v4'
+      region: 'us-east-1', // IDrive E2 genellikle us-east-1 kullanır
+      forcePathStyle: true,
     })
   }
 
   async authenticate(): Promise<boolean> {
     try {
       // S3 client ile bucket'ın varlığını kontrol ederek authentication test et
-      await this.s3Client.headBucket({ Bucket: this.bucketName }).promise()
+      const command = new HeadBucketCommand({ Bucket: this.bucketName })
+      await this.s3Client.send(command)
       return true
     } catch (error) {
       console.error('IDrive authentication failed:', error)
@@ -39,13 +42,14 @@ export class IDriveClient {
       // S3'te klasör oluşturmak için boş bir obje yükleriz (trailing slash ile)
       const key = `${this.basePath}/${folderPath}/`
       
-      await this.s3Client.putObject({
+      const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: '',
         ContentLength: 0
-      }).promise()
-
+      })
+      
+      await this.s3Client.send(command)
       return true
     } catch (error) {
       console.error('Error creating folder:', error)
@@ -58,12 +62,13 @@ export class IDriveClient {
       const fileStream = fs.createReadStream(localFilePath)
       const key = `${this.basePath}/${remotePath}`
 
-      await this.s3Client.upload({
+      const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: fileStream
-      }).promise()
+      })
 
+      await this.s3Client.send(command)
       return true
     } catch (error) {
       console.error('Error uploading file:', error)
@@ -75,13 +80,14 @@ export class IDriveClient {
     try {
       const key = `${this.basePath}/${remotePath}`
 
-      await this.s3Client.putObject({
+      const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: buffer,
         ContentType: this.getContentType(filename)
-      }).promise()
+      })
 
+      await this.s3Client.send(command)
       return true
     } catch (error) {
       console.error('Error uploading buffer:', error)
@@ -93,13 +99,35 @@ export class IDriveClient {
     try {
       const key = `${this.basePath}/${remotePath}`
 
-      const response = await this.s3Client.getObject({
+      const command = new GetObjectCommand({
         Bucket: this.bucketName,
         Key: key
-      }).promise()
+      })
+
+      const response = await this.s3Client.send(command)
 
       if (response.Body) {
-        fs.writeFileSync(localPath, response.Body as Buffer)
+        const chunks: Uint8Array[] = []
+        
+        // AWS SDK v3 returns a stream that needs to be handled differently
+        if (response.Body instanceof ReadableStream) {
+          const reader = response.Body.getReader()
+          
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            chunks.push(value)
+          }
+        } else {
+          // Handle Node.js Readable stream
+          const stream = response.Body as any
+          for await (const chunk of stream) {
+            chunks.push(chunk)
+          }
+        }
+        
+        const buffer = Buffer.concat(chunks)
+        fs.writeFileSync(localPath, buffer)
         return true
       }
 
@@ -114,10 +142,12 @@ export class IDriveClient {
     try {
       const prefix = `${this.basePath}/${folderPath}/`
 
-      const response = await this.s3Client.listObjectsV2({
+      const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
         Prefix: prefix
-      }).promise()
+      })
+
+      const response = await this.s3Client.send(command)
 
       return response.Contents?.map(obj => ({
         name: obj.Key?.replace(prefix, ''),
@@ -135,11 +165,12 @@ export class IDriveClient {
     try {
       const key = `${this.basePath}/${remotePath}`
 
-      await this.s3Client.deleteObject({
+      const command = new DeleteObjectCommand({
         Bucket: this.bucketName,
         Key: key
-      }).promise()
+      })
 
+      await this.s3Client.send(command)
       return true
     } catch (error) {
       console.error('Error deleting file:', error)
@@ -151,10 +182,12 @@ export class IDriveClient {
     try {
       const key = `${this.basePath}/${remotePath}`
 
-      const response = await this.s3Client.headObject({
+      const command = new HeadObjectCommand({
         Bucket: this.bucketName,
         Key: key
-      }).promise()
+      })
+
+      const response = await this.s3Client.send(command)
 
       return {
         size: response.ContentLength,
@@ -195,10 +228,8 @@ export class IDriveClient {
     const userFolder = `${userPrincipalName}`
     await this.createFolder(userFolder)
     
-    // Create subfolders
-    await this.createFolder(`${userFolder}/emails`)
-    await this.createFolder(`${userFolder}/attachments`)
-    await this.createFolder(`${userFolder}/daily-backups`)
+    // Sadece ekler klasörü oluştur
+    await this.createFolder(`${userFolder}/ekler`)
     
     return userFolder
   }
@@ -251,9 +282,9 @@ export class IDriveClient {
 
   async uploadAttachment(userPrincipalName: string, messageId: string, attachmentId: string, attachmentData: Buffer, filename: string): Promise<string> {
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const remotePath = `${userPrincipalName}/attachments/${messageId}/${attachmentId}_${sanitizedFilename}`
+    const remotePath = `${userPrincipalName}/ekler/${sanitizedFilename}-${attachmentId}`
     
-    const success = await this.uploadBuffer(attachmentData, remotePath, `${attachmentId}_${sanitizedFilename}`)
+    const success = await this.uploadBuffer(attachmentData, remotePath, `${sanitizedFilename}-${attachmentId}`)
     
     return success ? remotePath : ''
   }
@@ -270,10 +301,12 @@ export class IDriveClient {
   async getStorageUsage(): Promise<{ used: number; total: number }> {
     try {
       // S3'te storage usage bilgisi almak için bucket'taki tüm objeleri listeleriz
-      const response = await this.s3Client.listObjectsV2({
+      const command = new ListObjectsV2Command({
         Bucket: this.bucketName,
         Prefix: this.basePath
-      }).promise()
+      })
+
+      const response = await this.s3Client.send(command)
 
       const used = response.Contents?.reduce((total, obj) => total + (obj.Size || 0), 0) || 0
       

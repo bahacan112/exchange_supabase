@@ -58,8 +58,7 @@ CREATE TABLE emails (
     importance VARCHAR(20), -- 'low', 'normal', 'high'
     has_attachments BOOLEAN DEFAULT false,
     attachment_count INTEGER DEFAULT 0,
-    eml_file_path TEXT, -- Path to EML file in IDrive
-    idrive_folder_path TEXT, -- IDrive folder path
+    -- eml_file_path ve idrive_folder_path alanları kaldırıldı - artık sadece ekleri saklıyoruz
     backup_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'completed', 'failed'
     backup_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -75,7 +74,7 @@ CREATE TABLE email_attachments (
     filename VARCHAR(255) NOT NULL,
     content_type VARCHAR(100),
     size_bytes BIGINT,
-    idrive_file_path TEXT, -- Path to attachment file in IDrive
+    backup_path TEXT, -- Path to attachment file in 'ekler' folder
     backup_status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'completed', 'failed'
     backup_date TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

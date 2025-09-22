@@ -2,6 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Users, Search, RefreshCw, Download, User, Mail, Building, Calendar, ChevronLeft, ChevronRight, UserCheck, UserX, Clock, AlertCircle } from "lucide-react"
 
 interface ExchangeUser {
   id: string
@@ -19,6 +28,7 @@ interface ExchangeUser {
 
 export default function UsersList() {
   const router = useRouter()
+  const { toast } = useToast()
   const [users, setUsers] = useState<ExchangeUser[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
@@ -76,15 +86,34 @@ export default function UsersList() {
 
       if (response.ok) {
         const result = await response.json()
-        alert(`Senkronizasyon tamamlandı. ${result.data.created} yeni kullanıcı eklendi, ${result.data.updated} kullanıcı güncellendi.`)
+        if (result.results.errors === 0) {
+          toast({
+            title: "Senkronizasyon Başarılı",
+            description: `${result.results.created} yeni kullanıcı eklendi, ${result.results.updated} kullanıcı güncellendi.`,
+          })
+        } else {
+          toast({
+            title: "Senkronizasyon Tamamlandı",
+            description: `${result.results.errors} hata oluştu. Detaylar için konsolu kontrol edin.`,
+            variant: "destructive",
+          })
+        }
         fetchUsers()
       } else {
         const error = await response.json()
-        alert(`Senkronizasyon hatası: ${error.error}`)
+        toast({
+          title: "Senkronizasyon Hatası",
+          description: error.error,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Failed to sync users:', error)
-      alert('Senkronizasyon sırasında hata oluştu')
+      toast({
+        title: "Hata",
+        description: "Senkronizasyon sırasında hata oluştu",
+        variant: "destructive",
+      })
     } finally {
       setSyncing(false)
     }
@@ -103,15 +132,26 @@ export default function UsersList() {
       })
 
       if (response.ok) {
-        alert('Kullanıcı başarıyla senkronize edildi')
+        toast({
+          title: "Başarılı",
+          description: "Kullanıcı başarıyla senkronize edildi",
+        })
         fetchUsers()
       } else {
         const error = await response.json()
-        alert(`Senkronizasyon hatası: ${error.error}`)
+        toast({
+          title: "Senkronizasyon Hatası",
+          description: error.error,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Failed to sync user:', error)
-      alert('Senkronizasyon sırasında hata oluştu')
+      toast({
+        title: "Hata",
+        description: "Senkronizasyon sırasında hata oluştu",
+        variant: "destructive",
+      })
     }
   }
 
@@ -122,7 +162,11 @@ export default function UsersList() {
     if (startDate) {
       parsedStartDate = new Date(startDate)
       if (isNaN(parsedStartDate.getTime())) {
-        alert('Geçersiz tarih formatı')
+        toast({
+          title: "Hata",
+          description: "Geçersiz tarih formatı",
+          variant: "destructive",
+        })
         return
       }
     }
@@ -147,21 +191,36 @@ export default function UsersList() {
 
       if (response.ok) {
         const result = await response.json()
-        alert('Yedekleme başlatıldı')
+        toast({
+          title: "Başarılı",
+          description: "Yedekleme başlatıldı",
+        })
         router.push(`/dashboard/backup/progress/${result.data.jobId}`)
       } else {
         const error = await response.json()
-        alert(`Yedekleme hatası: ${error.error}`)
+        toast({
+          title: "Yedekleme Hatası",
+          description: error.error,
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Failed to start backup:', error)
-      alert('Yedekleme başlatılırken hata oluştu')
+      toast({
+        title: "Hata",
+        description: "Yedekleme başlatılırken hata oluştu",
+        variant: "destructive",
+      })
     }
   }
 
   const handleBulkBackup = async () => {
     if (selectedUsers.length === 0) {
-      alert('Lütfen en az bir kullanıcı seçin')
+      toast({
+        title: "Uyarı",
+        description: "Lütfen en az bir kullanıcı seçin",
+        variant: "destructive",
+      })
       return
     }
 
@@ -194,7 +253,10 @@ export default function UsersList() {
       }
     }
 
-    alert('Toplu yedekleme işleri başlatıldı')
+    toast({
+      title: "Başarılı",
+      description: "Toplu yedekleme işleri başlatıldı",
+    })
     setSelectedUsers([])
   }
 
@@ -220,28 +282,52 @@ export default function UsersList() {
 
   if (loading) {
     return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="animate-pulse space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-center space-x-4">
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/6"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/6"></div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Exchange Kullanıcıları
+          </CardTitle>
+          <CardDescription>
+            Kullanıcı bilgileri yükleniyor...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     )
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 py-5 sm:p-6">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Users className="h-5 w-5" />
+          Exchange Kullanıcıları
+        </CardTitle>
+        <CardDescription>
+          Exchange sunucusundaki kullanıcıları görüntüleyin ve yönetin
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
         {/* Arama ve İşlemler */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
-          <div className="flex-1 max-w-lg">
-            <input
+          <div className="flex-1 max-w-lg relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
               type="text"
               placeholder="Kullanıcı ara..."
               value={searchTerm}
@@ -249,188 +335,168 @@ export default function UsersList() {
                 setSearchTerm(e.target.value)
                 setCurrentPage(1)
               }}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              className="pl-10"
             />
           </div>
           <div className="flex space-x-2">
             {selectedUsers.length > 0 && (
-              <button
-                onClick={handleBulkBackup}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-              >
+              <Button onClick={handleBulkBackup} className="bg-green-600 hover:bg-green-700">
+                <Download className="mr-2 h-4 w-4" />
                 Seçilenleri Yedekle ({selectedUsers.length})
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               onClick={handleSyncAllUsers}
               disabled={syncing}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              variant="outline"
             >
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Senkronize Ediliyor...' : 'Tümünü Senkronize Et'}
-            </button>
+            </Button>
           </div>
         </div>
 
         {users.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Kullanıcı bulunamadı.</p>
-            <button
-              onClick={handleSyncAllUsers}
-              className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
+          <div className="text-center py-12">
+            <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Henüz kullanıcı bulunamadı</h3>
+            <p className="text-gray-500 mb-6">Exchange sunucusundan kullanıcıları senkronize edin</p>
+            <Button onClick={handleSyncAllUsers} disabled={syncing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
               Exchange&apos;den Kullanıcıları Çek
-            </button>
+            </Button>
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
                         checked={selectedUsers.length === users.length && users.length > 0}
-                        onChange={toggleAllUsers}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        onCheckedChange={toggleAllUsers}
                       />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Kullanıcı
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      E-posta
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Departman
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Durum
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Son Senkronizasyon
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      İşlemler
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                    </TableHead>
+                    <TableHead>Kullanıcı</TableHead>
+                    <TableHead>E-posta</TableHead>
+                    <TableHead>Departman</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Son Senkronizasyon</TableHead>
+                    <TableHead className="text-right">İşlemler</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input
-                          type="checkbox"
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <Checkbox
                           checked={selectedUsers.includes(user.id)}
-                          onChange={() => toggleUserSelection(user.id)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          onCheckedChange={() => toggleUserSelection(user.id)}
                         />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {user.display_name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {user.user_principal_name}
-                            </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-400" />
+                            <div className="font-medium">{user.display_name}</div>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {user.user_principal_name}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{user.email}</div>
-                        {user.job_title && (
-                          <div className="text-sm text-gray-500">{user.job_title}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{user.department || '-'}</div>
-                        {user.office_location && (
-                          <div className="text-sm text-gray-500">{user.office_location}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                        }`}>
-                          {user.is_active ? 'Aktif' : 'Pasif'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.last_sync_date ? formatDate(user.last_sync_date) : 'Henüz senkronize edilmedi'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleSyncUser(user.user_principal_name)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Senkronize Et
-                          </button>
-                          <button
-                            onClick={() => handleStartBackup(user.id, user.user_principal_name)}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Yedekle
-                          </button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            <div className="text-sm">{user.email}</div>
+                          </div>
+                          {user.job_title && (
+                            <div className="text-sm text-muted-foreground">{user.job_title}</div>
+                          )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Building className="h-4 w-4 text-gray-400" />
+                            <div className="text-sm">{user.department || '-'}</div>
+                          </div>
+                          {user.office_location && (
+                            <div className="text-sm text-muted-foreground">{user.office_location}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                          {user.is_active ? 'Aktif' : 'Pasif'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          {user.last_sync_date ? formatDate(user.last_sync_date) : 'Henüz senkronize edilmedi'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSyncUser(user.user_principal_name)}
+                          >
+                            <RefreshCw className="mr-1 h-3 w-3" />
+                            Senkronize Et
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleStartBackup(user.id, user.user_principal_name)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <Download className="mr-1 h-3 w-3" />
+                            Yedekle
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             {/* Sayfalama */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
-                <div className="flex flex-1 justify-between sm:hidden">
-                  <button
+              <div className="flex items-center justify-between pt-4">
+                <div className="text-sm text-muted-foreground">
+                  Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
+                    <ChevronLeft className="h-4 w-4" />
                     Önceki
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                   >
                     Sonraki
-                  </button>
-                </div>
-                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Sayfa <span className="font-medium">{currentPage}</span> / <span className="font-medium">{totalPages}</span>
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                      <button
-                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                      >
-                        ←
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                      >
-                        →
-                      </button>
-                    </nav>
-                  </div>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             )}
           </>
         )}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

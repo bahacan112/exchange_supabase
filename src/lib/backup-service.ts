@@ -191,7 +191,7 @@ export class BackupService {
         return
       }
 
-      // EML içeriğini çek
+      // EML içeriğini çek (sadece boyut kontrolü için)
       const emlContent = await GraphService.getEmailEML(options.userPrincipalName, message.id)
       
       if (!emlContent) {
@@ -204,16 +204,7 @@ export class BackupService {
         throw new Error(`Email boyutu çok büyük: ${emailSizeMB.toFixed(2)}MB`)
       }
 
-      // IDrive'a yükle - yeni dosya ismi formatı ile
-      const uploadResult = await idriveClient.uploadEmailAsEml(
-        options.userPrincipalName,
-        folderId || 'inbox',
-        message.id,
-        emlContent,
-        message.sentDateTime || message.receivedDateTime, // Gönderilme tarihi
-        message.from?.emailAddress?.address, // Gönderen email
-        message.from?.emailAddress?.name // Gönderen ismi
-      )
+      // EML dosyasını artık bucket'a yüklemiyoruz, sadece DB'ye kaydediyoruz
 
       // Veritabanına kaydet
       const { data: dbEmail, error: insertError } = await supabase
@@ -237,8 +228,8 @@ export class BackupService {
           importance: message.importance || 'normal',
           has_attachments: message.hasAttachments || false,
           attachment_count: message.attachments?.length || 0,
-          eml_file_path: uploadResult,
-          idrive_folder_path: folderPath,
+          // eml_file_path artık kullanılmıyor
+          // idrive_folder_path artık kullanılmıyor
           backup_status: 'completed',
           backup_date: new Date().toISOString()
         })
@@ -271,6 +262,12 @@ export class BackupService {
     try {
       const attachments = await GraphService.getAttachments(userPrincipalName, messageId)
 
+      // Attachments null veya undefined kontrolü
+      if (!attachments || !Array.isArray(attachments)) {
+        console.warn(`No attachments found for message ${messageId}`)
+        return
+      }
+
       for (const attachment of attachments) {
         try {
           if (attachment.size > 25 * 1024 * 1024) { // 25MB limit
@@ -287,9 +284,8 @@ export class BackupService {
 
           if (!attachmentData) continue
 
-          // IDrive'a yükle
-          const fileName = `${attachment.id}_${attachment.name}`
-          const folderPath = `exchange-backup/${userPrincipalName}/attachments/${new Date().getFullYear()}/${String(new Date().getMonth() + 1).padStart(2, '0')}`
+          // IDrive'a yükle - 'ekler' klasörüne
+          const fileName = `${attachment.name}-${attachment.id}`
           
           const uploadResult = await idriveClient.uploadAttachment(
             userPrincipalName,
